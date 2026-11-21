@@ -28,7 +28,9 @@ document.execCommand = jest.fn(() => true);
 // ── DataTransfer (not in jsdom) ───────────────────────────────────────────────
 if (!global.DataTransfer) {
   global.DataTransfer = class DataTransfer {
-    constructor() { this.items = { add: jest.fn() }; this.files = []; }
+    constructor() { this.items = { add: jest.fn() }; this.files = []; this._data = {}; }
+    setData(type, value) { this._data[type] = String(value); }
+    getData(type) { return this._data[type] ?? ''; }
   };
 }
 

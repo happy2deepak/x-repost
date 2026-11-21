@@ -306,3 +306,55 @@ describe('attribution', () => {
     expect(ctx.composeCaption('  ', 'alice', true)).toBe('via @alice');
   });
 });
+
+// ── Caption typing (Draft.js composer) ────────────────────────────────────────
+describe('typeCaption', () => {
+  // Minimal Draft-like editor: placeholder shows while the "model" is empty.
+  function draftEditor({ handlesPaste = true, handlesInsert = true, syncsModel = true } = {}) {
+    document.body.innerHTML = `
+      <div class="DraftEditor-root">
+        <div class="public-DraftEditorPlaceholder-root">What's happening?</div>
+        <div class="public-DraftEditor-content" contenteditable="true"></div>
+      </div>`;
+    const editor = document.querySelector('[contenteditable]');
+    const ph = document.querySelector('.public-DraftEditorPlaceholder-root');
+    ph.getClientRects = () => [{}];   // jsdom has no layout — treat as visible
+    const setText = (t) => {
+      editor.textContent = t;
+      if (syncsModel && t) ph.remove();
+    };
+    if (handlesPaste) {
+      editor.addEventListener('paste', (e) => { e.preventDefault(); setText(e.clipboardData.getData('text/plain')); });
+    }
+    const exec = jest.fn((cmd, _ui, value) => {
+      if (cmd === 'delete') editor.textContent = '';
+      if (cmd === 'insertText' && handlesInsert) setText(editor.textContent + value);
+      return true;
+    });
+    document.execCommand = exec;
+    return { editor, exec };
+  }
+
+  const origExec = document.execCommand;
+  afterEach(() => { document.execCommand = origExec; });
+
+  test('uses paste first and never touches insertText when Draft accepts it', async () => {
+    const { editor, exec } = draftEditor();
+    await expect(ctx.typeCaption(editor, 'line one\n\nvia @alice')).resolves.toBe(true);
+    expect(editor.textContent).toBe('line one\n\nvia @alice');
+    expect(exec).not.toHaveBeenCalledWith('insertText', false, expect.anything());
+  });
+
+  test('falls back to insertText when paste is ignored', async () => {
+    const { editor, exec } = draftEditor({ handlesPaste: false });
+    await expect(ctx.typeCaption(editor, 'hello')).resolves.toBe(true);
+    expect(exec).toHaveBeenCalledWith('insertText', false, 'hello');
+    expect(editor.textContent).toBe('hello');   // no duplicate
+  });
+
+  test('out-of-sync text is cleared, not left uneditable', async () => {
+    const { editor } = draftEditor({ syncsModel: false });
+    await expect(ctx.typeCaption(editor, 'hello')).resolves.toBe(false);
+    expect(editor.textContent).toBe('');
+  });
+});

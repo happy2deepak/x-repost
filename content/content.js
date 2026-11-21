@@ -910,6 +910,40 @@ function editorHasText(editor, text) {
   return norm(editor.innerText ?? editor.textContent).includes(probe);
 }
 
+// X's composer is a Draft.js editor: it keeps its own model of the text and
+// shows the "What's happening?" placeholder while that model is empty. Text
+// that reaches the DOM without going through Draft's handlers is visible but
+// not editable, and the placeholder stays on top of it.
+function placeholderVisible(editor) {
+  const ph = editor.closest('.DraftEditor-root')?.querySelector('.public-DraftEditorPlaceholder-root');
+  return Boolean(ph && isElementVisible(ph));
+}
+
+// Text is in the DOM *and* Draft's model has it (placeholder gone).
+function editorAccepted(editor, text) {
+  return editorHasText(editor, text) && !placeholderVisible(editor);
+}
+
+function editorIsEmpty(editor) {
+  return !(editor.textContent || '').trim();
+}
+
+// Wipe the editor through Draft's own handlers (selection stays inside it).
+async function clearEditor(editor) {
+  editor.focus();
+  try { document.execCommand('selectAll'); } catch (_) {}
+  try { document.execCommand('delete'); } catch (_) {}
+  await sleep(150);
+}
+
+function dispatchPaste(editor, text) {
+  try {
+    const dt = new DataTransfer();
+    dt.setData('text/plain', text);
+    editor.dispatchEvent(new ClipboardEvent('paste', { clipboardData: dt, bubbles: true, cancelable: true }));
+  } catch (_) {}
+}
+
 async function typeCaption(editor, text) {
   if (!text) return true;
   if (!editor) return false;
@@ -917,27 +951,30 @@ async function typeCaption(editor, text) {
   editor.focus();
   await sleep(150);
 
-  // Select the editor's own contents (not the whole page), then insert.
-  try {
-    const range = document.createRange();
-    range.selectNodeContents(editor);
-    const sel = window.getSelection();
-    sel.removeAllRanges();
-    sel.addRange(range);
-  } catch (_) {}
+  // Start from an empty editor. selectAll inside a focused contenteditable
+  // only selects the editor's text, which Draft tracks correctly (unlike a
+  // Range over the editor node, which also covers Draft's structural divs).
+  if (!editorIsEmpty(editor)) await clearEditor(editor);
 
+  // 1. Synthetic paste: Draft parses it with its own paste handler, so its
+  //    model stays in sync and line breaks become proper blocks.
+  dispatchPaste(editor, text);
+  await sleep(300);
+  if (editorAccepted(editor, text)) return true;
+
+  // Paste left the DOM and Draft's model out of sync — clear before retrying
+  // so we never stack a second copy on top of uneditable text.
+  if (!editorIsEmpty(editor)) await clearEditor(editor);
+
+  // 2. Fallback: insertText at the caret (no custom Range).
+  editor.focus();
   try { document.execCommand('insertText', false, text); } catch (_) {}
-  await sleep(250);
-  if (editorHasText(editor, text)) return true;
+  await sleep(300);
+  if (editorAccepted(editor, text)) return true;
 
-  // Fallback: a synthetic paste, which DraftJS handles via clipboardData
-  try {
-    const dt = new DataTransfer();
-    dt.setData('text/plain', text);
-    editor.dispatchEvent(new ClipboardEvent('paste', { clipboardData: dt, bubbles: true, cancelable: true }));
-  } catch (_) {}
-  await sleep(250);
-  return editorHasText(editor, text);
+  // Still out of sync: leave the composer clean for a manual paste.
+  if (!editorIsEmpty(editor)) await clearEditor(editor);
+  return false;
 }
 
 // ─── Toast System ─────────────────────────────────────────────────────────────
