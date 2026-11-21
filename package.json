@@ -1,0 +1,30 @@
+{
+  "name": "x-repost-extension",
+  "version": "1.1.0",
+  "description": "RePost for X — Chrome extension",
+  "private": true,
+  "scripts": {
+    "test": "jest --colors",
+    "test:watch": "jest --watch --colors",
+    "test:coverage": "jest --coverage --colors",
+    "package": "node scripts/package.js"
+  },
+  "devDependencies": {
+    "jest": "^29.7.0",
+    "jest-environment-jsdom": "^29.7.0"
+  },
+  "jest": {
+    "testEnvironment": "jest-environment-jsdom",
+    "setupFiles": [
+      "<rootDir>/tests/setup.js"
+    ],
+    "testMatch": [
+      "<rootDir>/tests/**/*.test.js"
+    ],
+    "transform": {}
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/happy2deepak/x-repost.git"
+  }
+}

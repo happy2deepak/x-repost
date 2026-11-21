@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>RePost for X</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+
+  <!-- Header -->
+  <div class="popup-header">
+    <div class="popup-logo">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="8" width="13" height="13" rx="3"/><path d="M10 14 20 4M13.5 4H20v6.5"/>
+      </svg>
+    </div>
+    <div>
+      <div class="popup-title">RePost for X</div>
+      <div class="popup-subtitle">One-click media reposter</div>
+    </div>
+  </div>
+
+  <!-- Toggle -->
+  <div class="popup-toggle-row">
+    <div>
+      <div class="popup-toggle-label">RePost Buttons</div>
+      <div class="popup-toggle-desc">Show on posts with media</div>
+    </div>
+    <label class="toggle-switch" id="toggle-label">
+      <input type="checkbox" id="enabled-toggle" checked>
+      <span class="toggle-track"></span>
+    </label>
+  </div>
+
+  <!-- Status -->
+  <div class="popup-status">
+    <div class="popup-status-label">Last Action</div>
+    <div class="popup-status-card">
+      <div class="popup-status-dot idle" id="status-dot"></div>
+      <div class="popup-status-text" id="status-text">No reposts yet</div>
+    </div>
+  </div>
+
+  <!-- How it works -->
+  <div class="popup-steps">
+    <div class="popup-steps-label">How it works</div>
+    <div class="popup-step">
+      <div class="popup-step-num">1</div>
+      <div class="popup-step-text">Hover over any post with a photo or video</div>
+    </div>
+    <div class="popup-step">
+      <div class="popup-step-num">2</div>
+      <div class="popup-step-text">Click the <strong style="color:#e7e9ea">↩ RePost</strong> button that appears</div>
+    </div>
+    <div class="popup-step">
+      <div class="popup-step-num">3</div>
+      <div class="popup-step-text">Preview &amp; confirm — the composer is filled, you click Post</div>
+    </div>
+  </div>
+
+  <div class="popup-footer">Works entirely in your browser tab · No API keys needed</div>
+
+  <script src="popup.js"></script>
+</body>
+</html>

@@ -1,0 +1,450 @@
+/* ============================================================
+   RePost for X — Content Styles
+   All classes namespaced with "xrp-" to avoid collisions.
+   ============================================================ */
+
+/* ── RePost Button ─────────────────────────────────────────── */
+.xrp-repost-btn {
+  position: absolute;
+  bottom: 10px;
+  right: 10px;
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 6px 12px 6px 10px;
+  background: rgba(15, 20, 25, 0.82);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 999px;
+  color: #ffffff;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  cursor: pointer;
+  opacity: 0;
+  transform: translateY(4px) scale(0.96);
+  transition: opacity 0.18s ease, transform 0.18s ease, box-shadow 0.18s ease, background 0.18s ease;
+  pointer-events: auto;
+}
+
+/* Show on parent hover */
+[data-testid="tweetPhoto"]:hover .xrp-repost-btn,
+[data-testid="videoComponent"]:hover .xrp-repost-btn,
+.xrp-host:hover .xrp-repost-btn,
+.xrp-media-wrap:hover .xrp-repost-btn,
+.xrp-repost-btn:hover {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.45), 0 0 0 1px rgba(255,255,255,0.08);
+}
+
+.xrp-repost-btn:hover {
+  background: rgba(124, 92, 255, 0.9);
+  border-color: rgba(124, 92, 255, 0.6);
+  box-shadow: 0 4px 24px rgba(124, 92, 255, 0.4), 0 0 0 1px rgba(124,92,255,0.3);
+}
+
+.xrp-repost-btn:active {
+  transform: scale(0.95);
+}
+
+.xrp-repost-btn:disabled {
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+.xrp-repost-btn svg {
+  flex-shrink: 0;
+}
+
+/* ── Preview Overlay ───────────────────────────────────────── */
+.xrp-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 100000;
+  background: rgba(0, 0, 0, 0.75);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: xrp-fade-in 0.2s ease;
+}
+
+.xrp-preview {
+  position: relative;
+  width: 420px;
+  max-width: calc(100vw - 32px);
+  max-height: calc(100vh - 48px);
+  overflow: hidden;
+  background: #16202a;
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 20px;
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(124,92,255,0.15);
+  display: flex;
+  flex-direction: column;
+  animation: xrp-slide-up 0.22s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.xrp-preview-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 16px 18px 14px;
+  border-bottom: 1px solid rgba(255,255,255,0.07);
+}
+
+.xrp-preview-header h3 {
+  flex: 1;
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  font-size: 15px;
+  font-weight: 700;
+  color: #e7e9ea;
+  letter-spacing: -0.01em;
+}
+
+.xrp-preview-logo {
+  width: 24px;
+  height: 24px;
+  color: #7c5cff;
+}
+
+.xrp-close-btn {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(255,255,255,0.07);
+  color: #8b98a5;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  transition: background 0.15s, color 0.15s;
+  line-height: 1;
+}
+
+.xrp-close-btn:hover {
+  background: rgba(255,255,255,0.14);
+  color: #e7e9ea;
+}
+
+.xrp-preview-media {
+  position: relative;
+  width: 100%;
+  max-height: 280px;
+  overflow: hidden;
+  background: #0f1419;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.xrp-preview-media img,
+.xrp-preview-media video {
+  width: 100%;
+  max-height: 280px;
+  object-fit: contain;
+  display: block;
+}
+
+.xrp-preview-media--grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 2px;
+}
+
+.xrp-preview-media--grid img {
+  height: 138px;
+  max-height: 138px;
+  object-fit: cover;
+}
+
+.xrp-preview-media-badge {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  padding: 3px 8px;
+  background: rgba(0,0,0,0.7);
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #8b98a5;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.xrp-preview-caption {
+  padding: 12px 18px 14px;
+  border-bottom: 1px solid rgba(255,255,255,0.07);
+}
+
+.xrp-caption-label {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 7px;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #536471;
+}
+
+.xrp-char-count {
+  font-weight: 500;
+  font-size: 11px;
+  color: #536471;
+  transition: color 0.15s;
+}
+
+.xrp-char-count--warn { color: #f4a900; }
+.xrp-char-count--over { color: #f4212e; }
+
+.xrp-caption-input {
+  width: 100%;
+  min-height: 80px;
+  max-height: 160px;
+  padding: 10px 12px;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 10px;
+  color: #e7e9ea;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  font-size: 14px;
+  line-height: 1.55;
+  resize: vertical;
+  box-sizing: border-box;
+  outline: none;
+  transition: border-color 0.15s, box-shadow 0.15s;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.xrp-caption-input::placeholder {
+  color: #536471;
+}
+
+.xrp-caption-input:focus {
+  border-color: rgba(124, 92, 255, 0.6);
+  box-shadow: 0 0 0 3px rgba(124, 92, 255, 0.12);
+  background: rgba(255,255,255,0.06);
+}
+
+.xrp-preview-caption p {
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  font-size: 14px;
+  line-height: 1.55;
+  color: #c4cdd6;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.xrp-preview-caption em {
+  color: #536471;
+  font-style: italic;
+}
+
+.xrp-caption-warning {
+  display: inline-block;
+  margin-top: 8px;
+  padding: 3px 8px;
+  background: rgba(255, 180, 0, 0.12);
+  border: 1px solid rgba(255, 180, 0, 0.25);
+  border-radius: 6px;
+  font-size: 11px;
+  color: #f4a900;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+}
+
+.xrp-preview-actions {
+  display: flex;
+  gap: 10px;
+  padding: 14px 18px;
+}
+
+.xrp-btn-cancel,
+.xrp-btn-confirm {
+  flex: 1;
+  padding: 10px;
+  border-radius: 999px;
+  border: none;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.15s, transform 0.1s;
+}
+
+.xrp-btn-cancel {
+  background: rgba(255,255,255,0.08);
+  color: #e7e9ea;
+  border: 1px solid rgba(255,255,255,0.12);
+}
+
+.xrp-btn-cancel:hover {
+  background: rgba(255,255,255,0.13);
+}
+
+.xrp-btn-confirm {
+  background: #7c5cff;
+  color: #ffffff;
+}
+
+.xrp-btn-confirm:hover {
+  background: #6a48f0;
+}
+
+.xrp-btn-confirm:active,
+.xrp-btn-cancel:active {
+  transform: scale(0.97);
+}
+
+/* ── Toast Notifications ───────────────────────────────────── */
+.xrp-toast {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  z-index: 100001;
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  min-width: 260px;
+  max-width: 340px;
+  padding: 12px 16px;
+  background: #1e2732;
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 14px;
+  box-shadow: 0 12px 40px rgba(0,0,0,0.5);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  opacity: 0;
+  transform: translateY(12px) scale(0.96);
+  transition: opacity 0.2s ease, transform 0.2s ease;
+  pointer-events: none;
+}
+
+.xrp-toast--visible {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+}
+
+.xrp-toast--success {
+  border-color: rgba(0, 200, 120, 0.5);
+  background: #0d2018;
+  box-shadow: 0 0 0 1px rgba(0, 200, 120, 0.15), 0 8px 32px rgba(0,0,0,0.5);
+}
+
+/* "Ready to post" final state — stays visible until user dismisses */
+.xrp-toast--ready {
+  border-color: rgba(0, 200, 120, 0.6);
+  background: #0d2018;
+  box-shadow: 0 0 0 1px rgba(0, 200, 120, 0.2), 0 8px 32px rgba(0,200,120,0.15);
+  animation: xrp-pulse-border 2s ease-in-out infinite;
+}
+
+@keyframes xrp-pulse-border {
+  0%, 100% { box-shadow: 0 0 0 1px rgba(0,200,120,0.2), 0 8px 32px rgba(0,200,120,0.15); }
+  50%       { box-shadow: 0 0 0 2px rgba(0,200,120,0.5), 0 8px 32px rgba(0,200,120,0.3); }
+}
+
+.xrp-toast--error {
+  border-color: rgba(244, 33, 46, 0.3);
+  background: #1f1619;
+}
+
+.xrp-toast-icon {
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  margin-top: 1px;
+}
+
+.xrp-toast-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.xrp-toast-msg {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  color: #e7e9ea;
+  line-height: 1.4;
+}
+
+.xrp-toast-bar {
+  margin-top: 7px;
+  height: 3px;
+  background: rgba(255,255,255,0.08);
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.xrp-toast-bar-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #7c5cff, #b3a1ff);
+  border-radius: 999px;
+  transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* ── Keyframes ─────────────────────────────────────────────── */
+@keyframes xrp-fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@keyframes xrp-slide-up {
+  from { opacity: 0; transform: translateY(20px) scale(0.97); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes xrp-spin {
+  to { transform: rotate(360deg); }
+}
+
+.xrp-spinner {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  border: 2px solid rgba(255,255,255,0.2);
+  border-top-color: #7c5cff;
+  border-radius: 50%;
+  animation: xrp-spin 0.7s linear infinite;
+}
+
+/* ── Credit-the-author toggle ─────────────────────────────────────────────── */
+.xrp-credit {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  font-size: 13px;
+  color: #8b98a5;
+  cursor: pointer;
+  user-select: none;
+}
+
+.xrp-credit[hidden] {
+  display: none;
+}
+
+.xrp-credit input {
+  width: 15px;
+  height: 15px;
+  margin: 0;
+  accent-color: #7c5cff;
+  cursor: pointer;
+}
