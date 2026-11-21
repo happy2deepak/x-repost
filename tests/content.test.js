@@ -241,21 +241,47 @@ describe('findComposerRoot', () => {
     expect(ctx.isReplyOrQuoteComposer(root)).toBe(true);
   });
 
-  test('/compose/post over a thread is a fresh composer, not a reply', () => {
+  test('/compose/post over a post page picks the composer, not the inline reply box', () => {
     window.history.pushState({}, '', '/compose/post');
     document.body.innerHTML = `
-      <main>
+      <main><div data-testid="primaryColumn">
         <article data-testid="tweet">the post behind</article>
-        <div id="box">
-          <div data-testid="tweetTextarea_0" contenteditable="true"></div>
-          <div data-testid="toolBar"><input type="file" data-testid="fileInput" accept="image/*,video/*"></div>
-        </div>
-      </main>`;
-    visible(document.querySelector('[data-testid="tweetTextarea_0"]'));
+        <div id="reply-box"><div data-testid="tweetTextarea_0" contenteditable="true"></div></div>
+      </div></main>
+      <div id="layers"><div id="box">
+        <div data-testid="tweetTextarea_0" contenteditable="true" id="composer-ta"></div>
+        <div data-testid="toolBar"><input type="file" data-testid="fileInput" accept="image/*,video/*"></div>
+      </div></div>`;
+    document.querySelectorAll('[data-testid="tweetTextarea_0"]').forEach(visible);
     const root = ctx.findComposerRoot();
     window.history.pushState({}, '', '/');
     expect(root.id).toBe('box');
     expect(ctx.isReplyOrQuoteComposer(root)).toBe(false);
+    expect(ctx.findFileInput(root)).not.toBeNull();
+  });
+
+  test('/compose/post as a full page (narrow layout) is still found', () => {
+    window.history.pushState({}, '', '/compose/post');
+    document.body.innerHTML = `
+      <main><div id="box">
+        <div data-testid="tweetTextarea_0" contenteditable="true"></div>
+        <div data-testid="toolBar"><input type="file" data-testid="fileInput"></div>
+      </div></main>`;
+    visible(document.querySelector('[data-testid="tweetTextarea_0"]'));
+    const root = ctx.findComposerRoot();
+    window.history.pushState({}, '', '/');
+    expect(root.id).toBe('box');
+  });
+
+  test('/compose/post never falls back to the inline reply box alone', () => {
+    window.history.pushState({}, '', '/compose/post');
+    document.body.innerHTML = `
+      <main><article data-testid="tweet">post</article>
+        <div data-testid="tweetTextarea_0" contenteditable="true"></div></main>`;
+    visible(document.querySelector('[data-testid="tweetTextarea_0"]'));
+    const root = ctx.findComposerRoot();
+    window.history.pushState({}, '', '/');
+    expect(root).toBeNull();
   });
 });
 

@@ -48,8 +48,12 @@
       if (isVisible(ta)) return ta;
     }
     if (location.pathname.startsWith('/compose/')) {
-      const ta = document.querySelector(TEXTAREA_SEL);
-      if (isVisible(ta)) return ta;
+      // Skip the page's own Home / inline-reply boxes behind the composer
+      const tas = [...document.querySelectorAll(TEXTAREA_SEL)].filter(isVisible);
+      const pageOf = ta => ta.closest('[data-testid="primaryColumn"], main');
+      return tas.find(ta => !pageOf(ta)) ||
+             tas.find(ta => !pageOf(ta).querySelector(ARTICLE_SEL)) ||
+             null;
     }
     return null;
   }

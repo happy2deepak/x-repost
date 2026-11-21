@@ -866,10 +866,22 @@ function findComposerRoot() {
     if (ta && isElementVisible(ta)) return dialog;
   }
   if (window.location.pathname.startsWith('/compose/')) {
-    const ta = document.querySelector(SEL.composerTextarea);
-    if (ta && isElementVisible(ta)) return composerBox(ta);
+    const ta = findRouteComposerTextarea();
+    if (ta) return composerBox(ta);
   }
   return null;
+}
+
+// On /compose/post the page behind keeps its own boxes with the same testid —
+// the Home box or, on a post page, the inline "Post your reply" box. The real
+// composer is the one rendered outside the page column; on narrow layouts it
+// IS the page column, which then holds no posts.
+function findRouteComposerTextarea() {
+  const tas = [...document.querySelectorAll(SEL.composerTextarea)].filter(isElementVisible);
+  const pageOf = ta => ta.closest('[data-testid="primaryColumn"], main');
+  return tas.find(ta => !pageOf(ta)) ||
+         tas.find(ta => !pageOf(ta).querySelector(SEL.article)) ||
+         null;
 }
 
 // On the /compose/post route the composer floats over the page it was opened
