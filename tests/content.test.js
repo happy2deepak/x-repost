@@ -240,6 +240,23 @@ describe('findComposerRoot', () => {
     root.insertAdjacentHTML('afterbegin', '<div data-testid="replyingToText">Replying to @x</div>');
     expect(ctx.isReplyOrQuoteComposer(root)).toBe(true);
   });
+
+  test('/compose/post over a thread is a fresh composer, not a reply', () => {
+    window.history.pushState({}, '', '/compose/post');
+    document.body.innerHTML = `
+      <main>
+        <article data-testid="tweet">the post behind</article>
+        <div id="box">
+          <div data-testid="tweetTextarea_0" contenteditable="true"></div>
+          <div data-testid="toolBar"><input type="file" data-testid="fileInput" accept="image/*,video/*"></div>
+        </div>
+      </main>`;
+    visible(document.querySelector('[data-testid="tweetTextarea_0"]'));
+    const root = ctx.findComposerRoot();
+    window.history.pushState({}, '', '/');
+    expect(root.id).toBe('box');
+    expect(ctx.isReplyOrQuoteComposer(root)).toBe(false);
+  });
 });
 
 // ── Preview panel lifecycle ───────────────────────────────────────────────────
@@ -356,5 +373,68 @@ describe('typeCaption', () => {
     const { editor } = draftEditor({ syncsModel: false });
     await expect(ctx.typeCaption(editor, 'hello')).resolves.toBe(false);
     expect(editor.textContent).toBe('');
+  });
+});
+
+// ── Media download progress / stall ───────────────────────────────────────────
+describe('fetchMediaFile', () => {
+  const fakeResp = (chunks, { length, never = false } = {}) => {
+    let i = 0;
+    return {
+      ok: true,
+      headers: { get: h => (h === 'content-length' ? String(length ?? '') : h === 'content-type' ? 'video/mp4' : null) },
+      body: {
+        getReader: () => ({
+          read: () => never ? new Promise(() => {})
+            : Promise.resolve(i < chunks.length ? { done: false, value: chunks[i++] } : { done: true }),
+          cancel: () => Promise.resolve(),
+        }),
+      },
+    };
+  };
+  const realTimers = { setTimeout: ctx.setTimeout, clearTimeout: ctx.clearTimeout };
+  afterEach(() => { delete ctx.fetch; jest.useRealTimers(); Object.assign(ctx, realTimers); });
+
+  test('streams directly and reports progress against content-length', async () => {
+    ctx.fetch = jest.fn(async () => fakeResp([new Uint8Array(3), new Uint8Array(7)], { length: 10 }));
+    const progress = jest.fn();
+    const file = await ctx.fetchMediaFile('https://video.twimg.com/a.mp4', 'video', 0, progress);
+    expect(file.size).toBe(10);
+    expect(file.name).toBe('video.mp4');
+    expect(progress.mock.calls).toEqual([[3, 10], [10, 10]]);
+  });
+
+  test('a stalled direct download fails with a clear error instead of hanging', async () => {
+    jest.useFakeTimers();
+    Object.assign(ctx, { setTimeout: global.setTimeout, clearTimeout: global.clearTimeout });
+    ctx.fetch = jest.fn((_url, { signal }) => new Promise((_res, rej) => {
+      signal.addEventListener('abort', () => rej(new DOMException('aborted', 'AbortError')));
+    }));
+    const p = ctx.fetchMediaFile('https://video.twimg.com/a.mp4', 'video');
+    const assertion = expect(p).rejects.toThrow(/stalled/);
+    jest.advanceTimersByTime(20001);
+    await assertion;
+  });
+
+  test('falls back to the service worker when the direct fetch is blocked', async () => {
+    ctx.fetch = jest.fn(async () => { throw new TypeError('Failed to fetch'); });
+    const listeners = {};
+    const port = {
+      onMessage: { addListener: fn => { listeners.msg = fn; } },
+      onDisconnect: { addListener: fn => { listeners.disc = fn; } },
+      disconnect: jest.fn(),
+      postMessage: jest.fn(() => {
+        listeners.msg({ type: 'progress', received: 2, total: 4 });
+        listeners.msg({ type: 'chunk', data: btoa('abcd'), total: 4 });
+        listeners.msg({ type: 'done', mimeType: 'image/png' });
+      }),
+    };
+    chrome.runtime.connect = jest.fn(() => port);
+    const progress = jest.fn();
+    const file = await ctx.fetchMediaFile('https://pbs.twimg.com/media/a', 'image', 1, progress);
+    expect(file.size).toBe(4);
+    expect(file.name).toBe('image-2.png');
+    expect(progress.mock.calls).toEqual([[2, 4], [4, 4]]);
+    delete chrome.runtime.connect;
   });
 });

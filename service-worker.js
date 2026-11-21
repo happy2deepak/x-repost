@@ -6,6 +6,8 @@
 
 const ALLOWED_MEDIA_HOSTS = new Set(['pbs.twimg.com', 'video.twimg.com']);
 const CHUNK_BYTES = 4 * 1024 * 1024;
+const STALL_MS = 20000;      // abort when no bytes arrive for this long
+const PROGRESS_MS = 300;     // progress update cadence between chunks
 
 chrome.runtime.onInstalled.addListener(async ({ reason }) => {
   // Only set defaults on first install — updates must keep the user's choice.
@@ -65,26 +67,39 @@ chrome.runtime.onConnect.addListener((port) => {
 
   port.onMessage.addListener(async (msg) => {
     if (msg?.type !== 'fetch') return;
+
+    // Abort if no bytes arrive for STALL_MS (covers both connect and mid-stream stalls)
+    const ctrl = new AbortController();
+    let stalled = false;
+    let timer = null;
+    const arm = () => {
+      clearTimeout(timer);
+      timer = setTimeout(() => { stalled = true; ctrl.abort(); }, STALL_MS);
+    };
+
     try {
       const url = new URL(msg.url);
       if (url.protocol !== 'https:' || !ALLOWED_MEDIA_HOSTS.has(url.hostname)) {
         throw new Error(`Blocked media host: ${url.hostname}`);
       }
 
-      const resp = await fetch(url.href, { cache: 'no-store' });
+      arm();
+      const resp = await fetch(url.href, { cache: 'no-store', signal: ctrl.signal });
       if (!resp.ok) throw new Error(`HTTP ${resp.status} ${resp.statusText}`.trim());
 
       const mimeType = resp.headers.get('content-type') ||
                        (msg.mediaType === 'video' ? 'video/mp4' : 'image/jpeg');
+      const expected = Number(resp.headers.get('content-length')) || 0;
 
       const reader = resp.body.getReader();
       let pending = [];
       let pendingSize = 0;
-      let total = 0;
+      let received = 0;
+      let lastProgress = 0;
 
       const flush = () => {
         if (!pendingSize) return;
-        port.postMessage({ type: 'chunk', data: bytesToBase64(concatChunks(pending, pendingSize)) });
+        port.postMessage({ type: 'chunk', data: bytesToBase64(concatChunks(pending, pendingSize)), total: expected });
         pending = [];
         pendingSize = 0;
       };
@@ -93,17 +108,26 @@ chrome.runtime.onConnect.addListener((port) => {
         const { done, value } = await reader.read();
         if (done) break;
         if (closed) { reader.cancel().catch(() => {}); return; }
+        arm();
         pending.push(value);
         pendingSize += value.length;
-        total += value.length;
-        if (pendingSize >= CHUNK_BYTES) flush();
+        received += value.length;
+        if (pendingSize >= CHUNK_BYTES) {
+          flush();
+        } else if (Date.now() - lastProgress > PROGRESS_MS) {
+          lastProgress = Date.now();
+          port.postMessage({ type: 'progress', received, total: expected });
+        }
       }
       flush();
 
-      port.postMessage({ type: 'done', mimeType, size: total });
+      port.postMessage({ type: 'done', mimeType, size: received });
     } catch (err) {
-      console.error('[RePost for X SW] Fetch error:', err);
-      if (!closed) port.postMessage({ type: 'error', error: err.message });
+      const message = stalled ? 'download stalled (no data for 20 seconds)' : err.message;
+      console.error('[RePost for X SW] Fetch error:', message);
+      if (!closed) port.postMessage({ type: 'error', error: message });
+    } finally {
+      clearTimeout(timer);
     }
   });
 });

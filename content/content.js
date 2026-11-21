@@ -619,10 +619,20 @@ function showPreviewPanel({ caption, media, handle = null }, callback) {
 // ─── Core Repost Flow ─────────────────────────────────────────────────────────
 async function executeRepost({ media, caption }) {
   // Step 1 — Download media before touching the composer
-  updateToast('Downloading media…', 'progress', 15);
+  const n = media.urls.length;
+  const label = i => n > 1 ? `Downloading image ${i + 1} of ${n}…` : `Downloading ${media.type}…`;
+  updateToast(label(0), 'progress', 5);
   const files = [];
-  for (let i = 0; i < media.urls.length; i++) {
-    files.push(await fetchMediaFile(media.urls[i], media.type, i));
+  for (let i = 0; i < n; i++) {
+    let lastPaint = 0;
+    files.push(await fetchMediaFile(media.urls[i], media.type, i, (got, total) => {
+      const now = Date.now();
+      if (now - lastPaint < 200) return;   // throttle DOM updates
+      lastPaint = now;
+      const sizeText = total ? `${formatMB(got)} / ${formatMB(total)} MB` : `${formatMB(got)} MB`;
+      const overall = (i + (total ? Math.min(got / total, 1) : 0)) / n;
+      updateToast(`${label(i)} ${sizeText}`, 'progress', 5 + overall * 25);
+    }));
   }
 
   // Step 2 — Open a fresh new-post composer (never a reply / quote)
@@ -673,16 +683,53 @@ function extFromMime(mime, mediaType) {
   return 'jpg';
 }
 
-async function fetchMediaFile(url, mediaType, index = 0) {
-  let blob = null;
+const STALL_MS = 20000;   // give up if no bytes arrive for this long
 
-  // twimg CDNs normally send permissive CORS headers — try directly first
+function formatMB(bytes) {
+  const mb = bytes / (1024 * 1024);
+  return mb < 10 ? mb.toFixed(1) : String(Math.round(mb));
+}
+
+// Streams `url` directly, reporting progress. Returns null on CORS/network
+// failure so the caller can fall back; throws only on a stall.
+async function fetchDirect(url, onProgress) {
+  const ctrl = new AbortController();
+  let stalled = false;
+  let timer = null;
+  const arm = () => {
+    clearTimeout(timer);
+    timer = setTimeout(() => { stalled = true; ctrl.abort(); }, STALL_MS);
+  };
+
+  arm();
   try {
-    const resp = await fetch(url, { credentials: 'omit', cache: 'no-store' });
-    if (resp.ok) blob = await resp.blob();
-  } catch (_) { /* CORS or network — fall back to the service worker */ }
+    const resp = await fetch(url, { credentials: 'omit', cache: 'no-store', signal: ctrl.signal });
+    if (!resp.ok || !resp.body) return null;
+    const total = Number(resp.headers.get('content-length')) || 0;
+    const reader = resp.body.getReader();
+    const parts = [];
+    let got = 0;
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      parts.push(value);
+      got += value.length;
+      arm();
+      onProgress?.(got, total);
+    }
+    return new Blob(parts, { type: resp.headers.get('content-type') || '' });
+  } catch (_) {
+    if (stalled) throw new Error('Download stalled — no data from X for 20 seconds. Check your connection and try again.');
+    return null;   // CORS or network — fall back to the service worker
+  } finally {
+    clearTimeout(timer);
+  }
+}
 
-  if (!blob || !blob.size) blob = await fetchViaServiceWorker(url, mediaType);
+async function fetchMediaFile(url, mediaType, index = 0, onProgress) {
+  // twimg CDNs normally send permissive CORS headers — try directly first
+  let blob = await fetchDirect(url, onProgress);
+  if (!blob || !blob.size) blob = await fetchViaServiceWorker(url, mediaType, onProgress);
 
   let mime = blob.type || '';
   if (mediaType === 'video' && !mime.includes('video')) mime = 'video/mp4';
@@ -702,7 +749,7 @@ function base64ToBytes(b64) {
 
 // Streams the file from the service worker in chunks over a Port, so large
 // videos don't hit the single-message size limit.
-function fetchViaServiceWorker(url, mediaType) {
+function fetchViaServiceWorker(url, mediaType, onProgress) {
   return new Promise((resolve, reject) => {
     let port;
     try {
@@ -713,26 +760,46 @@ function fetchViaServiceWorker(url, mediaType) {
     }
 
     const parts = [];
+    let got = 0;
     let finished = false;
+    let timer = null;
+    const finish = () => { finished = true; clearTimeout(timer); port.disconnect(); };
+    const arm = () => {
+      clearTimeout(timer);
+      timer = setTimeout(() => {
+        if (finished) return;
+        finish();
+        reject(new Error('Download stalled — no data from X for 20 seconds. Check your connection and try again.'));
+      }, STALL_MS + 5000);   // the worker has its own 20 s stall check; this catches a dead worker
+    };
 
     port.onMessage.addListener((msg) => {
-      if (msg?.type === 'chunk') {
-        parts.push(base64ToBytes(msg.data));
+      if (finished) return;
+      arm();
+      if (msg?.type === 'progress') {
+        onProgress?.(Math.max(got, msg.received || 0), msg.total || 0);
+      } else if (msg?.type === 'chunk') {
+        const bytes = base64ToBytes(msg.data);
+        parts.push(bytes);
+        got += bytes.length;
+        onProgress?.(got, msg.total || 0);
       } else if (msg?.type === 'done') {
-        finished = true;
-        port.disconnect();
+        finish();
         resolve(new Blob(parts, { type: msg.mimeType || '' }));
       } else if (msg?.type === 'error') {
-        finished = true;
-        port.disconnect();
+        finish();
         reject(new Error(`Media download failed: ${msg.error}. The media URL may have expired — scroll past the post and back to refresh it, then try again.`));
       }
     });
 
     port.onDisconnect.addListener(() => {
-      if (!finished) reject(new Error('Media download was interrupted. Try again.'));
+      if (finished) return;
+      finished = true;
+      clearTimeout(timer);
+      reject(new Error('Media download was interrupted. Try again.'));
     });
 
+    arm();
     port.postMessage({ type: 'fetch', url, mediaType });
   });
 }
@@ -800,11 +867,23 @@ function findComposerRoot() {
   }
   if (window.location.pathname.startsWith('/compose/')) {
     const ta = document.querySelector(SEL.composerTextarea);
-    if (ta && isElementVisible(ta)) {
-      return ta.closest('[data-testid="primaryColumn"], main') || document.body;
-    }
+    if (ta && isElementVisible(ta)) return composerBox(ta);
   }
   return null;
+}
+
+// On the /compose/post route the composer floats over the page it was opened
+// from (often a post's thread). Scope it to the smallest ancestor holding the
+// composer's toolbar / file input, and never widen it to include page posts —
+// otherwise those posts look like a reply/quote composer.
+function composerBox(ta) {
+  let last = ta;
+  for (let el = ta.parentElement; el && el !== document.body; el = el.parentElement) {
+    if (el.querySelector(SEL.article)) break;
+    last = el;
+    if (el.querySelector(`[data-testid="toolBar"], ${SEL.fileInput}`)) return el;
+  }
+  return last;
 }
 
 function isReplyOrQuoteComposer(root) {

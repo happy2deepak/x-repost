@@ -43,6 +43,8 @@ const context = vm.createContext({
   history:  { pushState: jest.fn() },
   PopStateEvent: global.PopStateEvent || Event,
   atob:     global.atob,
+  AbortController: global.AbortController,
+  DOMException: global.DOMException,
   btoa:     global.btoa,
 });
 
