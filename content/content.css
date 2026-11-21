@@ -3,8 +3,8 @@
    All classes namespaced with "xrp-" to avoid collisions.
    ============================================================ */
 
-/* ── RePost Button ─────────────────────────────────────────── */
-.xrp-repost-btn {
+/* ── RePost Button: floating fallback (no action bar) ─────────────────────────────────────────── */
+.xrp-repost-btn--overlay {
   position: absolute;
   bottom: 10px;
   right: 10px;
@@ -31,33 +31,93 @@
 }
 
 /* Show on parent hover */
-[data-testid="tweetPhoto"]:hover .xrp-repost-btn,
-[data-testid="videoComponent"]:hover .xrp-repost-btn,
-.xrp-host:hover .xrp-repost-btn,
-.xrp-media-wrap:hover .xrp-repost-btn,
-.xrp-repost-btn:hover {
+[data-testid="tweetPhoto"]:hover .xrp-repost-btn--overlay,
+[data-testid="videoComponent"]:hover .xrp-repost-btn--overlay,
+.xrp-host:hover .xrp-repost-btn--overlay,
+.xrp-media-wrap:hover .xrp-repost-btn--overlay,
+.xrp-repost-btn--overlay:hover {
   opacity: 1;
   transform: translateY(0) scale(1);
   box-shadow: 0 4px 24px rgba(0, 0, 0, 0.45), 0 0 0 1px rgba(255,255,255,0.08);
 }
 
-.xrp-repost-btn:hover {
+.xrp-repost-btn--overlay:hover {
   background: rgba(124, 92, 255, 0.9);
   border-color: rgba(124, 92, 255, 0.6);
   box-shadow: 0 4px 24px rgba(124, 92, 255, 0.4), 0 0 0 1px rgba(124,92,255,0.3);
 }
 
-.xrp-repost-btn:active {
+.xrp-repost-btn--overlay:active {
   transform: scale(0.95);
 }
 
-.xrp-repost-btn:disabled {
+.xrp-repost-btn--overlay:disabled {
   opacity: 0.5;
   pointer-events: none;
 }
 
-.xrp-repost-btn svg {
+.xrp-repost-btn--overlay svg {
   flex-shrink: 0;
+  width: 13px;
+  height: 13px;
+  stroke-width: 2.4;
+}
+
+/* ── RePost Button: inline in the post's action bar ─────────
+   Mirrors X's native action icons (18.75px glyph in a round hit area). */
+.xrp-action {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+}
+
+.xrp-repost-btn--inline {
+  display: flex;
+  align-items: center;
+  margin: 0;
+  padding: 0;
+  border: none;
+  background: none;
+  color: rgb(113, 118, 123);
+  cursor: pointer;
+  outline: none;
+}
+
+.xrp-action-icon {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.xrp-action-icon::before {
+  content: "";
+  position: absolute;
+  inset: -8px;
+  border-radius: 999px;
+  background: transparent;
+  transition: background 0.2s;
+}
+
+.xrp-action-icon svg {
+  position: relative;
+  width: 18.75px;
+  height: 18.75px;
+}
+
+.xrp-repost-btn--inline:hover,
+.xrp-repost-btn--inline:focus-visible {
+  color: #7c5cff;
+}
+
+.xrp-repost-btn--inline:hover .xrp-action-icon::before,
+.xrp-repost-btn--inline:focus-visible .xrp-action-icon::before {
+  background: rgba(124, 92, 255, 0.12);
+}
+
+.xrp-repost-btn--inline:disabled {
+  opacity: 0.5;
+  cursor: progress;
 }
 
 /* ── Preview Overlay ───────────────────────────────────────── */

@@ -91,29 +91,68 @@ describe('weighted length', () => {
 });
 
 // ── Button injection & toggle ─────────────────────────────────────────────────
-function photoPost({ quoted = false } = {}) {
+const ACTION_BAR = `
+  <div role="group">
+    <div><button data-testid="reply"></button></div>
+    <div><button data-testid="retweet"></button></div>
+    <div><button data-testid="like"></button></div>
+    <div><a href="/x/status/1/analytics"></a></div>
+    <div class="share"><button data-testid="bookmark"></button><button aria-label="Share"></button></div>
+  </div>`;
+
+function photoPost({ quoted = false, ownMedia = true, bar = true } = {}) {
   return `
     <article data-testid="tweet">
       <div data-testid="tweetText">main</div>
+      ${ownMedia ? `
       <div data-testid="tweetPhoto"><img src="https://pbs.twimg.com/media/AAA?format=jpg&name=small"></div>
-      <div data-testid="tweetPhoto"><img src="https://pbs.twimg.com/media/BBB?format=png&name=small"></div>
+      <div data-testid="tweetPhoto"><img src="https://pbs.twimg.com/media/BBB?format=png&name=small"></div>` : ''}
       ${quoted ? `<div role="link" tabindex="0">
         <div data-testid="tweetText">quoted</div>
         <div data-testid="tweetPhoto"><img src="https://pbs.twimg.com/media/QQQ?format=jpg&name=small"></div>
       </div>` : ''}
+      ${bar ? ACTION_BAR : ''}
     </article>`;
 }
 
 describe('processArticle', () => {
-  test('adds one button per post and one per quoted post, idempotently', () => {
+  test('adds one icon to the action bar, before bookmark/share, idempotently', () => {
     document.body.innerHTML = photoPost({ quoted: true });
     const article = document.querySelector('article');
     ctx.processArticle(article);
     ctx.processArticle(article);
-    expect(article.querySelectorAll('.xrp-repost-btn')).toHaveLength(2);
+    const bar = article.querySelector('[role="group"]');
+    expect(article.querySelectorAll('.xrp-repost-btn')).toHaveLength(1);
+    expect(bar.querySelectorAll(':scope > .xrp-action')).toHaveLength(1);
+    expect(bar.lastElementChild.previousElementSibling.classList.contains('xrp-action')).toBe(true);
+    expect(article.querySelector('.xrp-repost-btn--overlay')).toBeNull();
   });
 
-  test('re-adds buttons after toggling off and on', () => {
+  test('falls back to overlay buttons when there is no action bar', () => {
+    document.body.innerHTML = photoPost({ quoted: true, bar: false });
+    const article = document.querySelector('article');
+    ctx.processArticle(article);
+    expect(article.querySelectorAll('.xrp-repost-btn--overlay')).toHaveLength(2);
+  });
+
+  test('swaps the overlay for the inline icon once the action bar renders', () => {
+    document.body.innerHTML = photoPost({ bar: false });
+    const article = document.querySelector('article');
+    ctx.processArticle(article);
+    article.insertAdjacentHTML('beforeend', ACTION_BAR);
+    ctx.processArticle(article);
+    expect(article.querySelector('.xrp-repost-btn--overlay')).toBeNull();
+    expect(article.querySelectorAll('.xrp-repost-btn--inline')).toHaveLength(1);
+  });
+
+  test('no icon on posts without media', () => {
+    document.body.innerHTML = photoPost({ ownMedia: false });
+    const article = document.querySelector('article');
+    ctx.processArticle(article);
+    expect(article.querySelector('.xrp-action')).toBeNull();
+  });
+
+  test('re-adds the icon after toggling off and on', () => {
     document.body.innerHTML = photoPost();
     const article = document.querySelector('article');
     ctx.processArticle(article);
@@ -124,13 +163,23 @@ describe('processArticle', () => {
   });
 
   test('handles media that loads after the article', () => {
-    document.body.innerHTML = '<article data-testid="tweet"><div data-testid="tweetText">x</div></article>';
+    document.body.innerHTML = `<article data-testid="tweet"><div data-testid="tweetText">x</div>${ACTION_BAR}</article>`;
     const article = document.querySelector('article');
     ctx.processArticle(article);
     expect(article.querySelector('.xrp-repost-btn')).toBeNull();
-    article.insertAdjacentHTML('beforeend', '<div data-testid="tweetPhoto"><img src="https://pbs.twimg.com/media/A"></div>');
+    article.insertAdjacentHTML('afterbegin', '<div data-testid="tweetPhoto"><img src="https://pbs.twimg.com/media/A"></div>');
     ctx.processArticle(article);
-    expect(article.querySelector('.xrp-repost-btn')).not.toBeNull();
+    expect(article.querySelector('.xrp-repost-btn--inline')).not.toBeNull();
+  });
+
+  test('action-bar icon uses the post media, else the quoted post media', () => {
+    document.body.innerHTML = photoPost({ quoted: true });
+    let article = document.querySelector('article');
+    expect(ctx.pickMediaScope(article)).toBe(article);
+
+    document.body.innerHTML = photoPost({ quoted: true, ownMedia: false });
+    article = document.querySelector('article');
+    expect(ctx.pickMediaScope(article)).toBe(article.querySelector('[role="link"]'));
   });
 });
 

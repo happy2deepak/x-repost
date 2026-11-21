@@ -133,7 +133,7 @@ chrome.runtime.onMessage.addListener((message) => {
 });
 
 function removeAllButtons() {
-  document.querySelectorAll('.xrp-repost-btn').forEach(btn => btn.remove());
+  document.querySelectorAll('.xrp-action, .xrp-repost-btn').forEach(el => el.remove());
   document.querySelectorAll('.xrp-host').forEach(el => el.classList.remove('xrp-host'));
 }
 
@@ -147,7 +147,7 @@ function startObserver() {
     for (const mutation of mutations) {
       for (const node of mutation.addedNodes) {
         if (node.nodeType !== ELEMENT_NODE) continue;
-        if (node.classList?.contains('xrp-repost-btn')) continue;
+        if (node.classList?.contains('xrp-repost-btn') || node.classList?.contains('xrp-action')) continue;
         // Media often renders AFTER the article itself — re-check the owning article
         const owner = node.closest?.(SEL.article);
         if (owner) queueArticle(owner);
@@ -202,36 +202,79 @@ function getMediaGroups(article) {
   return [...groups.entries()].map(([scope, host]) => ({ scope, host }));
 }
 
+// The post's native action bar (reply · repost · like · views · bookmark · share).
+// Quoted posts have no action bar of their own, so this is always the outer post's.
+function findActionBar(article) {
+  return [...article.querySelectorAll('[role="group"]')].find(g =>
+    g.closest(SEL.article) === article &&
+    g.querySelector('[data-testid="reply"], [data-testid="like"], [data-testid="unlike"]')
+  ) || null;
+}
+
+// Which media the action-bar button reposts: the post's own, else the quoted post's.
+function pickMediaScope(article) {
+  const groups = getMediaGroups(article);
+  return (groups.find(g => g.scope === article) || groups[0])?.scope || null;
+}
+
+const GLYPH_SVG = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="8" width="13" height="13" rx="3"/><path d="M10 14 20 4M13.5 4H20v6.5"/></svg>`;
+
+function makeButton(className) {
+  const btn = document.createElement('button');
+  btn.className = className;
+  btn.type = 'button';
+  btn.title = 'RePost this media';
+  btn.setAttribute('aria-label', 'RePost this media');
+  btn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    e.preventDefault();
+    if (!btn.disabled) handleRepostClick(btn);
+  });
+  return btn;
+}
+
 // Idempotent: safe to call repeatedly; re-adds the button if React removed it.
 function processArticle(article) {
   if (!article.isConnected) return;
-  for (const { host } of getMediaGroups(article)) ensureButton(host);
+  const groups = getMediaGroups(article);
+  const bar = findActionBar(article);
+  const existing = bar?.querySelector(':scope > .xrp-action');
+
+  if (!groups.length) { existing?.remove(); return; }
+
+  if (bar) {
+    // Inline in the action bar — drop any overlay added before the bar rendered
+    article.querySelectorAll('.xrp-repost-btn--overlay').forEach(b => b.remove());
+    if (!existing) ensureActionButton(bar);
+  } else {
+    // No action bar in this layout — fall back to a floating button on the media
+    for (const { host } of groups) ensureOverlayButton(host);
+  }
 }
 
 // ─── Button Injection ─────────────────────────────────────────────────────────
-function ensureButton(host) {
+function ensureActionButton(bar) {
+  const wrap = document.createElement('div');
+  wrap.className = 'xrp-action';
+  const btn = makeButton('xrp-repost-btn xrp-repost-btn--inline');
+  btn.innerHTML = `<span class="xrp-action-icon">${GLYPH_SVG}</span>`;
+  wrap.appendChild(btn);
+
+  // Sit just before the bookmark/share cluster (the bar's last item)
+  const last = bar.lastElementChild;
+  if (last && bar.children.length > 1) bar.insertBefore(wrap, last);
+  else bar.appendChild(wrap);
+}
+
+function ensureOverlayButton(host) {
   if (host.querySelector(':scope > .xrp-repost-btn')) return;
 
   const cs = window.getComputedStyle(host);
   if (cs.position === 'static') host.style.position = 'relative';
   host.classList.add('xrp-host');
 
-  const btn = document.createElement('button');
-  btn.className = 'xrp-repost-btn';
-  btn.type = 'button';
-  btn.title = 'RePost this media';
-  btn.innerHTML = `
-    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="8" width="13" height="13" rx="3"/><path d="M10 14 20 4M13.5 4H20v6.5"/>
-    </svg>
-    <span>RePost</span>
-  `;
-
-  btn.addEventListener('click', (e) => {
-    e.stopPropagation();
-    e.preventDefault();
-    if (!btn.disabled) handleRepostClick(btn);
-  });
-
+  const btn = makeButton('xrp-repost-btn xrp-repost-btn--overlay');
+  btn.innerHTML = `${GLYPH_SVG}<span>RePost</span>`;
   host.appendChild(btn);
 }
 
@@ -242,7 +285,8 @@ async function handleRepostClick(btn) {
   try {
     const article = btn.closest(SEL.article);
     if (!article) throw new Error('This post is no longer on the page.');
-    const scope = scopeOf(btn, article);
+    const scope = btn.classList.contains('xrp-repost-btn--inline') ? pickMediaScope(article) : scopeOf(btn, article);
+    if (!scope) throw new Error('This post has no photo or video to repost.');
 
     // Media type is decided at click time, so lazily-loaded videos are detected
     const media = await collectMedia(article, scope);
