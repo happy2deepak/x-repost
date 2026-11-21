@@ -89,8 +89,11 @@ function drawIcon(size) {
   const pixels = Buffer.alloc(size * size * 4, 0);
   const SS = 4;
   // Glyph lives in a 24-unit box, inset so it breathes inside the tile.
-  const pad = size * 0.16;
-  const unit = (size - 2 * pad) / 24;
+  // Store guideline: the 128px icon is 96px artwork + 16px transparent padding
+  const inset = size === 128 ? 16 : 0;
+  const tile = size - 2 * inset;
+  const pad = inset + tile * 0.16;
+  const unit = (tile - 2 * tile * 0.16) / 24;
   const half = Math.max(size >= 48 ? 1.35 : 1.6, 0) * unit;   // stroke half-width (thicker at 16px)
 
   for (let y = 0; y < size; y++) {
@@ -99,7 +102,7 @@ function drawIcon(size) {
       for (let sy = 0; sy < SS; sy++) {
         for (let sx = 0; sx < SS; sx++) {
           const px = x + (sx + 0.5) / SS, py = y + (sy + 0.5) / SS;
-          if (sdRoundRect(px, py, 0, 0, size, size, size * 0.22) > 0) continue;
+          if (sdRoundRect(px, py, inset, inset, tile, tile, tile * 0.22) > 0) continue;
           bgCov++;
           const gx = (px - pad) / unit, gy = (py - pad) / unit;
           const d = Math.min(

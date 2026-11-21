@@ -1,0 +1,18 @@
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { overflow: hidden; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  color: #f5f3ff;
+  -webkit-font-smoothing: antialiased;
+}
+.glyph { display: inline-flex; align-items: center; justify-content: center; background: #7c5cff; color: #fff; }
+.glyph svg { fill: none; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; }
+/* Placeholder "media": an abstract landscape, no real content */
+.scene {
+  background:
+    radial-gradient(circle at 72% 28%, #ffd59e 0 7%, transparent 7.5%),
+    linear-gradient(180deg, transparent 58%, #1f3b4d 58% 64%, #173041 64%),
+    linear-gradient(160deg, transparent 45%, #3c2a6e 45% 52%, transparent 52%),
+    linear-gradient(200deg, transparent 50%, #2b1f57 50% 60%, transparent 60%),
+    linear-gradient(180deg, #ff9a8b 0%, #c56cf0 45%, #6c5ce7 100%);
+}

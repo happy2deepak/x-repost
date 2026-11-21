@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "RePost for X",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "minimum_chrome_version": "111",
   "description": "Repost photos and videos from X posts in one click, with credit to the original author. Runs entirely in your browser.",
   "homepage_url": "https://github.com/happy2deepak/x-repost",
